@@ -93,17 +93,38 @@ export function ConversationView({
       frame = requestAnimationFrame(align);
     });
     const interactions = ["wheel", "touchstart", "pointerdown", "keydown"];
+    const inputDocuments = new Set<Document>();
     const stop = () => {
       observer.disconnect();
       cancelAnimationFrame(frame);
+      column.removeEventListener("load", frameLoaded, true);
+      inputDocuments.forEach((doc) =>
+        interactions.forEach((event) =>
+          doc.removeEventListener(event, stop, true),
+        ),
+      );
+      inputDocuments.clear();
+    };
+    const listen = (doc: Document) => {
+      if (inputDocuments.has(doc)) return;
+      inputDocuments.add(doc);
       interactions.forEach((event) =>
-        document.removeEventListener(event, stop, true),
+        doc.addEventListener(event, stop, { capture: true, passive: true }),
       );
     };
+    const frameLoaded = (event: Event) => {
+      if (
+        event.target instanceof HTMLIFrameElement &&
+        event.target.contentDocument
+      )
+        listen(event.target.contentDocument);
+    };
     observer.observe(column);
-    interactions.forEach((event) =>
-      document.addEventListener(event, stop, { capture: true, passive: true }),
-    );
+    listen(document);
+    column.addEventListener("load", frameLoaded, true);
+    column.querySelectorAll("iframe").forEach((emailFrame) => {
+      if (emailFrame.contentDocument) listen(emailFrame.contentDocument);
+    });
     return stop;
   }, [detail.data?.conversation.id]);
   async function changeConversation(action: Status | "unread" | "trash") {
