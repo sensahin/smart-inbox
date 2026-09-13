@@ -262,10 +262,16 @@ if (mode === "provision") {
   const snapshot = {};
   for (const table of recoveryTables) {
     const entry = manifest.tables.find((item) => item.table === table);
-    if (!entry && table === "message_opens") {
-      snapshot[table] = [];
+    if (
+      !entry &&
+      [
+        "message_opens",
+        "ai_runs",
+        "ai_documents",
+        "conversation_status_events",
+      ].includes(table)
+    )
       continue;
-    }
     if (!entry) throw new Error(`Missing backup table: ${table}`);
     snapshot[table] = await (await object(backupBucket, entry.key)).json();
     if (snapshot[table].length !== entry.rows)
@@ -297,7 +303,7 @@ if (mode === "provision") {
     });
     for (let i = 0; i < recoveryTables.length; i++) {
       const table = recoveryTables[i];
-      if (counts[i].results[0].count !== snapshot[table].length)
+      if (counts[i].results[0].count !== (snapshot[table]?.length || 0))
         throw new Error(`Restored row count mismatch: ${table}`);
     }
     if (counts[recoveryTables.length].results.length)

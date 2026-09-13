@@ -1,6 +1,13 @@
 import { DEFAULT_WORKSPACE, type WorkspaceSettings } from "../shared/workspace";
 import { Drafts, type DraftItem } from "./Drafts";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   FilePenLine,
   ArrowUpRight,
@@ -18,6 +25,7 @@ import {
   Search,
   Settings as SettingsIcon,
   Users,
+  ChartNoAxesCombined,
   X,
 } from "lucide-react";
 import type {
@@ -35,6 +43,9 @@ import { Composer } from "./Composer";
 import { Toast, type Notice, type Notify } from "./Toast";
 import { useUnreadTitle } from "./useUnreadTitle";
 import { Contacts } from "./Contacts";
+const Reports = lazy(() =>
+  import("./Reports").then((module) => ({ default: module.Reports })),
+);
 
 type ListResult = {
   items: Conversation[];
@@ -56,7 +67,9 @@ export function App() {
   const returnToList = useRef(false);
   const params = new URLSearchParams(location.search);
   const [view, setView] = useState(
-    ["settings", "drafts", "contacts"].includes(params.get("view") || "")
+    ["settings", "drafts", "contacts", "reports"].includes(
+      params.get("view") || "",
+    )
       ? params.get("view")!
       : "inbox",
   );
@@ -315,7 +328,7 @@ export function App() {
               setInboxId(e.target.value);
               setOffset(0);
               if (view === "contacts") selectContact(contactId, e.target.value);
-              else navigate("inbox");
+              else if (view !== "reports") navigate("inbox");
             }}
           >
             <option value="">All inboxes</option>
@@ -357,13 +370,20 @@ export function App() {
             <span className="nav-count">{drafts.data?.length || 0}</span>
           </button>
         </nav>
-        <nav className="contacts-navigation" aria-label="Contacts">
+        <nav className="contacts-navigation" aria-label="Workspace">
           <button
             className={`nav-item ${view === "contacts" ? "active" : ""}`}
             aria-current={view === "contacts" ? "page" : undefined}
             onClick={() => navigate("contacts")}
           >
             <Users size={16} /> Contacts
+          </button>
+          <button
+            className={`nav-item ${view === "reports" ? "active" : ""}`}
+            aria-current={view === "reports" ? "page" : undefined}
+            onClick={() => navigate("reports")}
+          >
+            <ChartNoAxesCombined size={16} /> Reports
           </button>
         </nav>
         <div className="sidebar-bottom">
@@ -417,6 +437,22 @@ export function App() {
           ) : (
             <p role="status">{workspaceData.error || "Loading settings…"}</p>
           )
+        ) : view === "reports" ? (
+          <Suspense fallback={<p role="status">Loading reports…</p>}>
+            <Reports
+              key={workspace.timezone}
+              inboxes={inboxes.data || []}
+              inboxId={inboxId}
+              setInboxId={setInboxId}
+              timezone={workspace.timezone}
+              openConversation={choose}
+              notify={notify}
+              openContact={(id) => {
+                setView("contacts");
+                selectContact(id);
+              }}
+            />
+          </Suspense>
         ) : view === "contacts" ? (
           <Contacts
             refresh={refresh}

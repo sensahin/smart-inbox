@@ -11,10 +11,16 @@ if (manifest.version !== 1) throw new Error("Unsupported export version.");
 const snapshot = {};
 for (const name of tables) {
   const entry = manifest.tables.find((t) => t.table === name);
-  if (!entry && name === "message_opens") {
-    snapshot[name] = [];
+  if (
+    !entry &&
+    [
+      "message_opens",
+      "ai_runs",
+      "ai_documents",
+      "conversation_status_events",
+    ].includes(name)
+  )
     continue;
-  }
   if (!entry) throw new Error("Export is missing " + name);
   const rows = JSON.parse(
     await readFile(resolve(dirname(manifestPath), basename(entry.key)), "utf8"),

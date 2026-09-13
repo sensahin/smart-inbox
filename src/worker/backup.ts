@@ -19,6 +19,7 @@ export const BACKUP_TABLES = [
   "ai_runs",
   "ai_documents",
   "message_opens",
+  "conversation_status_events",
 ] as const;
 export async function backup(env: AppEnv) {
   const lease = String(now() + 300000);

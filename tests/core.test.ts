@@ -106,6 +106,10 @@ const schema =
   (await readFile(
     new URL("../migrations/0005_open_tracking.sql", import.meta.url),
     "utf8",
+  )) +
+  (await readFile(
+    new URL("../migrations/0006_reports.sql", import.meta.url),
+    "utf8",
   ));
 const contact: Contact = {
   id: "customer",
@@ -309,6 +313,9 @@ describe("privacy and editing", () => {
       "/agents/support-draft-agent/private",
       "/api/conversations/unread-count",
       "/api/contacts",
+      "/api/reports",
+      "/api/reports/conversations",
+      "/api/reports/export",
       "/api/contacts/private",
       "/assets/app.js",
       "/api/attachments/private",
@@ -2677,5 +2684,266 @@ describe("contacts directory", () => {
     ).toBe(55);
     expect(first.items[0].id).toBe("h54");
     expect(last.items.at(-1)!.id).toBe("h0");
+  });
+});
+
+describe("private email reports", () => {
+  const date = () => new Date().toISOString().slice(0, 10);
+  const reportQuery = () => `from=${date()}&to=${date()}`;
+  async function readReport(extra = "") {
+    const response = await request(`/api/reports?${reportQuery()}${extra}`);
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toContain("no-store");
+    return (await response.json()) as import("../src/shared/reports").Report;
+  }
+  it("captures actual send and bulk status changes once, then excludes Trash and reopened resolutions", async () => {
+    const c = await incoming();
+    await setSetting(env, "reporting_started_at", String(Date.now()));
+    await mockGoogle();
+    const job = await enqueueOutgoing(env, payload(c));
+    await sendOutgoing(env, job.id);
+    const closed = await readReport();
+    expect(closed.metrics).toMatchObject({
+      created: 1,
+      received: 1,
+      sent: 1,
+      resolved: 1,
+      helped: 1,
+    });
+    expect(closed.metrics.first_response.count).toBe(1);
+    expect(closed.metrics.resolution.count).toBe(1);
+    expect(
+      await all(env.DB, "SELECT * FROM conversation_status_events"),
+    ).toHaveLength(1);
+    await request(`/api/conversations/${c.id}`, "PATCH", { status: "closed" });
+    expect(
+      await all(env.DB, "SELECT * FROM conversation_status_events"),
+    ).toHaveLength(1);
+    const current = await one<Conversation>(
+      env.DB,
+      "SELECT * FROM conversations WHERE id=?",
+      c.id,
+    );
+    const changed = await request("/api/conversations/bulk", "POST", {
+      action: "waiting",
+      items: [{ id: c.id, revision: current!.revision }],
+    });
+    expect(changed.status).toBe(200);
+    expect((await readReport()).metrics.resolved).toBe(0);
+    expect(
+      await all(env.DB, "SELECT * FROM conversation_status_events"),
+    ).toHaveLength(2);
+    await run(
+      env.DB,
+      "UPDATE conversations SET deleted_at=? WHERE id=?",
+      Date.now(),
+      c.id,
+    );
+    const trashed = await readReport();
+    expect(trashed.metrics).toMatchObject({
+      active: 0,
+      created: 0,
+      received: 0,
+      sent: 0,
+      resolved: 0,
+    });
+    expect(trashed.backlog).toEqual({ open: 0, waiting: 0 });
+  });
+  it("acknowledgements and unsent or uncertain jobs never count as responses", async () => {
+    const c = await incoming();
+    await mockGoogle();
+    const acknowledgement = await enqueueOutgoing(env, {
+      ...payload(c, "auto-report"),
+      kind: "auto",
+    });
+    await sendOutgoing(env, acknowledgement.id);
+    const pending = await enqueueOutgoing(env, payload(c, "pending-report"));
+    await run(
+      env.DB,
+      "UPDATE outgoing SET state='uncertain' WHERE id=?",
+      pending.id,
+    );
+    const data = await readReport();
+    expect(data.metrics).toMatchObject({
+      received: 1,
+      sent: 0,
+      resolved: 0,
+      helped: 0,
+    });
+    expect(data.metrics.first_response.count).toBe(0);
+    expect(
+      await all(env.DB, "SELECT * FROM conversation_status_events"),
+    ).toHaveLength(0);
+  });
+  it("records incoming reopens, filters all metrics by inbox and exports only selected data", async () => {
+    const c = await incoming();
+    await run(
+      env.DB,
+      "UPDATE conversations SET status='closed' WHERE id=?",
+      c.id,
+    );
+    await ingestMessage(
+      env,
+      await getMailbox(env, "mailbox"),
+      "token",
+      message("report-followup", { internalDate: String(Date.now() + 2) }),
+      [inbox],
+    );
+    const transitions = await all<{ to_status: string }>(
+      env.DB,
+      "SELECT to_status FROM conversation_status_events ORDER BY changed_at",
+    );
+    expect(transitions.map((t) => t.to_status)).toEqual(["closed", "open"]);
+    const data = await readReport("&inbox=missing");
+    expect(data.metrics.active).toBe(0);
+    expect(data.inboxes).toEqual([]);
+    await run(
+      env.DB,
+      "UPDATE conversations SET subject=? WHERE id=?",
+      '=HYPERLINK("https://example.test")',
+      c.id,
+    );
+    const csv = await request(
+      `/api/reports/export?${reportQuery()}&format=conversations&filter=created`,
+    );
+    expect(csv.status).toBe(200);
+    expect(csv.headers.get("cache-control")).toContain("no-store");
+    expect(csv.headers.get("content-type")).toContain("text/csv");
+    expect(await csv.text()).toContain("\"'=HYPERLINK");
+    const noMatches = await request(
+      `/api/reports/export?${reportQuery()}&inbox=missing&format=conversations`,
+    );
+    expect((await noMatches.text()).trim().split("\r\n")).toHaveLength(1);
+    const details = await request(
+      `/api/reports/conversations?${reportQuery()}&filter=received`,
+    );
+    const detail = (await details.json()) as {
+      items: { id: string }[];
+      total: number;
+    };
+    expect(detail.total).toBe(1);
+    expect(detail.items[0].id).toBe(c.id);
+  });
+  it("validates dates, paging, range caps and report filters", async () => {
+    for (const q of [
+      "from=2026-02-30&to=2026-03-01",
+      "from=2025-01-01&to=2026-02-01",
+      "from=2026-05-02&to=2026-05-01",
+      "from=2099-01-01&to=2099-01-01",
+      `${reportQuery()}&offset=-1`,
+      `${reportQuery()}&filter=drop`,
+      `${reportQuery()}&format=html`,
+    ]) {
+      expect((await request(`/api/reports?${q}`)).status).toBe(400);
+    }
+  });
+  it("preserves the resolution ledger through backup restore and resets coverage for older snapshots", async () => {
+    const c = await incoming();
+    await run(
+      env.DB,
+      "UPDATE conversations SET status='waiting' WHERE id=?",
+      c.id,
+    );
+    await run(
+      env.DB,
+      "UPDATE conversations SET status='closed' WHERE id=?",
+      c.id,
+    );
+    await setSetting(env, "reporting_started_at", "100");
+    const before = await all(
+      env.DB,
+      "SELECT * FROM conversation_status_events ORDER BY changed_at,id",
+    );
+    const snapshot: Record<string, Record<string, unknown>[]> = {};
+    for (const table of BACKUP_TABLES)
+      snapshot[table] = await all(env.DB, `SELECT * FROM ${table}`);
+    await env.DB.batch(
+      recoveryStatements(snapshot).map((s) => env.DB.prepare(s)),
+    );
+    expect(
+      await all(
+        env.DB,
+        "SELECT * FROM conversation_status_events ORDER BY changed_at,id",
+      ),
+    ).toEqual(before);
+    expect((await readReport()).reporting_started_at).toBe(100);
+    delete snapshot.conversation_status_events;
+    const started = Date.now();
+    await env.DB.batch(
+      recoveryStatements(snapshot).map((s) => env.DB.prepare(s)),
+    );
+    expect(
+      await all(env.DB, "SELECT * FROM conversation_status_events"),
+    ).toEqual([]);
+    expect((await readReport()).reporting_started_at).toBeGreaterThanOrEqual(
+      started,
+    );
+  });
+  it("paginates drilldowns, exports every matching conversation, and scopes distinct customers", async () => {
+    const timestamp = Date.now();
+    await run(
+      env.DB,
+      "INSERT INTO inboxes(id,name,address,from_name,created_at) VALUES ('second','Billing','billing@example.test','Billing',?)",
+      timestamp,
+    );
+    await run(
+      env.DB,
+      `WITH RECURSIVE n(x) AS (SELECT 1 UNION ALL SELECT x+1 FROM n WHERE x<52)
+      INSERT INTO conversations(id,number,inbox_id,contact_id,subject,status,created_at,updated_at)
+      SELECT 'report-'||x,x,CASE WHEN x=52 THEN 'second' ELSE 'inbox' END,'customer','Question '||x,'open',?,? FROM n`,
+      timestamp,
+      timestamp,
+    );
+    await run(
+      env.DB,
+      `INSERT INTO messages(id,conversation_id,direction,sender,sender_name,recipients,subject,body_key,search_text,sent_at)
+      SELECT id||'-message',id,'inbound','customer@example.test','Customer','["support@example.com"]',subject,'','Private message text',? FROM conversations`,
+      timestamp,
+    );
+    const data = await readReport();
+    expect(data.metrics).toMatchObject({
+      received: 52,
+      customers: 1,
+      active: 52,
+    });
+    expect(data.customers[0].conversations).toBe(52);
+    expect(data.inboxes).toHaveLength(2);
+    expect((await readReport("&inbox=second")).metrics).toMatchObject({
+      received: 1,
+      customers: 1,
+      active: 1,
+    });
+    const page = (await (
+      await request(
+        `/api/reports/conversations?${reportQuery()}&inbox=inbox&offset=50`,
+      )
+    ).json()) as {
+      items: { number: number }[];
+      total: number;
+      has_more: boolean;
+    };
+    expect(page).toMatchObject({ total: 51, has_more: false });
+    expect(page.items.map((c) => c.number)).toEqual([1]);
+    const csv = await (
+      await request(
+        `/api/reports/export?${reportQuery()}&format=conversations&inbox=inbox`,
+      )
+    ).text();
+    expect(csv.trim().split("\r\n")).toHaveLength(52);
+    expect(csv).not.toContain("Private message text");
+  });
+  it("rejects an oversized report instead of silently truncating totals", async () => {
+    const timestamp = Date.now();
+    await run(
+      env.DB,
+      `WITH RECURSIVE n(x) AS (SELECT 1 UNION ALL SELECT x+1 FROM n WHERE x<10001)
+      INSERT INTO conversations(id,number,inbox_id,contact_id,subject,status,created_at,updated_at)
+      SELECT 'limit-'||x,x,'inbox','customer','Question','open',?,? FROM n`,
+      timestamp,
+      timestamp,
+    );
+    const response = await request(`/api/reports?${reportQuery()}`);
+    expect(response.status).toBe(413);
+    expect(await response.text()).toContain("shorter date range");
   });
 });

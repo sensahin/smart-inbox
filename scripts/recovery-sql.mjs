@@ -17,6 +17,7 @@ export const tables = [
   "ai_runs",
   "ai_documents",
   "message_opens",
+  "conversation_status_events",
 ];
 const identifier = (value) => {
   if (!/^[a-z_]+$/.test(value)) throw new Error("Invalid snapshot column.");
@@ -37,7 +38,14 @@ const primaryKeys = {
   message_attachments: ["message_id", "attachment_id"],
 };
 export function recoveryStatements(snapshot) {
-  snapshot = { ai_runs: [], ai_documents: [], message_opens: [], ...snapshot };
+  const hasReportHistory = Array.isArray(snapshot.conversation_status_events);
+  snapshot = {
+    ai_runs: [],
+    ai_documents: [],
+    message_opens: [],
+    conversation_status_events: [],
+    ...snapshot,
+  };
   for (const table of tables)
     if (!Array.isArray(snapshot[table]))
       throw new Error("Missing snapshot table: " + table);
@@ -79,6 +87,10 @@ export function recoveryStatements(snapshot) {
         }
       }
     }
+  if (!hasReportHistory)
+    statements.push(
+      `INSERT INTO settings(key,value) VALUES ('reporting_started_at','${Date.now()}') ON CONFLICT(key) DO UPDATE SET value=excluded.value`,
+    );
   statements.push(
     "INSERT INTO settings(key,value) VALUES ('sending_enabled','false'),('acknowledgements_enabled','false'),('open_tracking_enabled','false'),('restore_reconciled','false'),('ai_paused','true') ON CONFLICT(key) DO UPDATE SET value=excluded.value",
     "UPDATE settings SET value='0' WHERE key='backup_lease'",

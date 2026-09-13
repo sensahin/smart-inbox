@@ -20,7 +20,7 @@ Settings → Activity & sending displays the most recent successful backup and q
 
 Open Trash in the sidebar, select conversations, and choose Restore. Deletion affects this dashboard only and preserves the Gmail copies, message bodies, attachments, and drafts. No automatic purge runs. An incoming customer reply received after deletion restores the ticket as Open; duplicate synchronization and older recovered messages do not restore it. Tickets with pending, sending, or uncertain jobs must finish or reconcile before moving to Trash. Restore a trashed ticket before retrying a failed send.
 
-Backups include Trash membership, ticket revisions, and each message's Gmail thread ID. Older exports use the new columns' defaults when restored into the current schema.
+Backups include Trash membership, ticket revisions, the status transition ledger used by Reports, and each message's Gmail thread ID. Older exports use the new columns' defaults when restored into the current schema.
 
 ## Restore a daily export into a new database
 
@@ -58,3 +58,5 @@ Before an in-place Time Travel restore, pause sending and disable the queue cons
 Source: [Cloudflare D1 Time Travel](https://developers.cloudflare.com/d1/reference/time-travel/).
 
 AI recovery: exports include the draft-run ledger and documentation index. Restore pauses AI and quarantines unfinished runs; complete Gmail reconciliation, then deliberately re-enable AI in Settings. Older exports without AI tables restore with empty AI data. See [AI drafts](ai-drafts.md).
+
+Report recovery: exports preserve recorded status changes and the date resolution tracking began. Older exports without the status ledger restore with empty closure history and a new tracking start time. Restoring a snapshot does not create artificial closure events.

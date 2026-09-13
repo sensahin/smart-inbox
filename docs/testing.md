@@ -8,7 +8,7 @@ npm run build
 npm run release:check
 ```
 
-Tests use isolated local D1/R2 storage and mocked email and integration providers. They cover synchronization, threading, send retries, status transitions, HTML sanitization, attachments, drafts, contacts, provider responses, and AI eligibility and reference selection. Authentication tests check protected routes, rejected origins, and missing deployment configuration.
+Tests use isolated local D1/R2 storage and mocked email and integration providers. They cover synchronization, threading, send retries, status transitions, HTML sanitization, attachments, drafts, contacts, reporting calculations and exports, provider responses, and AI eligibility and reference selection. Authentication tests check protected routes, rejected origins, and missing deployment configuration.
 
 For browser testing, start the local servers using the [README instructions](../README.md#local-development). `npm run seed:local` adds fictional contacts and conversations. Check navigation, search, sorting, pagination, drafts, and settings at desktop and mobile widths. Stop the servers when finished.
 

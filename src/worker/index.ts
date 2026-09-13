@@ -8,6 +8,7 @@ import { settingsRoutes } from "./routes/settings";
 import { inboxRoutes } from "./routes/inboxes";
 import { conversationRoutes } from "./routes/conversations";
 import { contactRoutes } from "./routes/contacts";
+import { reportRoutes } from "./routes/reports";
 import { pendingJobs, sendOutgoing } from "./outbox";
 import { synchronize } from "./sync";
 import { backup, maintenance } from "./backup";
@@ -31,6 +32,7 @@ app.route("/api", settingsRoutes);
 app.route("/api", inboxRoutes);
 app.route("/api", conversationRoutes);
 app.route("/api", contactRoutes);
+app.route("/api", reportRoutes);
 app.all("/api/*", (c) => c.json({ error: "Endpoint not found." }, 404));
 app.get("*", (c) => c.env.ASSETS.fetch(c.req.raw));
 app.onError((error, c) => {

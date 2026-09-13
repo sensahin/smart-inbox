@@ -5,6 +5,7 @@ A private, self-hosted email support inbox for one owner. React and TypeScript o
 - Multiple Gmail / Google Workspace inboxes and verified sending aliases.
 - Open, Waiting, Closed, recoverable Trash, search, saved replies, attachments, and conflict-protected drafts.
 - Automatically saved contacts with search, inbox filters, and conversation history.
+- Email reports with date and inbox filters, response and resolution metrics, activity charts, and CSV exports.
 - Optional read-only Freemius and Mailchimp customer details.
 - Optional AI research using your documentation, GitHub repository, and earlier replies. AI writes drafts; it cannot send them.
 - Configurable workspace name, uploaded logo, documentation link, product subject formatting, and inbox identities.
@@ -46,6 +47,7 @@ npm run build
 - [Google mailbox authorization](docs/google-setup.md)
 - [AI draft setup and limits](docs/ai-drafts.md)
 - [Getting started](docs/getting-started.md)
+- [Reports and metric definitions](docs/reports.md)
 - [Backups and recovery](docs/recovery.md)
 - [Testing](docs/testing.md)
 
