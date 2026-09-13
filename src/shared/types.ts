@@ -71,6 +71,7 @@ export interface Conversation {
   unread: number;
   history_missing: number;
   deleted_at: number | null;
+  merged_into?: string | null;
   revision: number;
   last_inbound_id: string | null;
   snippet: string;

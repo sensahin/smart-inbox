@@ -110,6 +110,10 @@ const schema =
   (await readFile(
     new URL("../migrations/0006_reports.sql", import.meta.url),
     "utf8",
+  )) +
+  (await readFile(
+    new URL("../migrations/0007_conversation_merges.sql", import.meta.url),
+    "utf8",
   ));
 const contact: Contact = {
   id: "customer",
@@ -2946,4 +2950,395 @@ describe("private email reports", () => {
     expect(response.status).toBe(413);
     expect(await response.text()).toContain("shorter date range");
   });
+});
+
+describe("conversation previews and merging", () => {
+  async function pair() {
+    const target = await incoming("merge-first");
+    await ingestMessage(
+      env,
+      await getMailbox(env, "mailbox"),
+      "token",
+      message("merge-second", { threadId: "second-thread" }),
+      [inbox],
+    );
+    const source = (await one<Conversation>(
+      env.DB,
+      "SELECT * FROM conversations WHERE gmail_thread_id='second-thread'",
+    ))!;
+    return { target, source };
+  }
+  const merge = (target: Conversation, source: Conversation) =>
+    request(`/api/conversations/${target.id}/merge`, "POST", {
+      source_id: source.id,
+      source_revision: source.revision,
+      target_revision: target.revision,
+    });
+  const fresh = async (id: string) =>
+    (await one<Conversation>(
+      env.DB,
+      "SELECT * FROM conversations WHERE id=?",
+      id,
+    ))!;
+
+  it("previews without changing unread state, drafts, or the selected ticket", async () => {
+    const { target, source } = await pair();
+    await request(`/api/drafts/reply:${target.id}`, "PUT", {
+      version: 0,
+      conversation_id: target.id,
+      payload: { text: "An unfinished reply" },
+    });
+    const before = await all(env.DB, "SELECT * FROM conversations ORDER BY id");
+    const response = await request(`/api/conversations/${source.id}`);
+    expect(response.status).toBe(200);
+    expect(
+      await all(env.DB, "SELECT * FROM conversations ORDER BY id"),
+    ).toEqual(before);
+    expect(await all(env.DB, "SELECT * FROM drafts")).toHaveLength(1);
+    expect(await all(env.DB, "SELECT * FROM outgoing")).toHaveLength(0);
+  });
+
+  it("combines history, files, tracking and completed work while retaining the current draft and subject", async () => {
+    const { target, source } = await pair();
+    const sourceMessage = source.last_inbound_id!;
+    await run(
+      env.DB,
+      "INSERT INTO attachments VALUES ('merge-file',?,?,'merge/file','details.txt','text/plain',7,NULL,1)",
+      source.id,
+      sourceMessage,
+    );
+    await env.FILES.put("merge/file", "Details");
+    await run(
+      env.DB,
+      "INSERT INTO message_attachments VALUES (?, 'merge-file')",
+      sourceMessage,
+    );
+    await enqueueOutgoing(env, payload(source));
+    const job = (await one<Outgoing>(env.DB, "SELECT * FROM outgoing"))!;
+    await markSent(env, job, "merge-sent", "second-thread");
+    await run(
+      env.DB,
+      "INSERT INTO message_opens VALUES (?, 'merge-token', 'https://images.example.com/pixel.gif', 1234, 1)",
+      job.id,
+    );
+    await run(
+      env.DB,
+      "INSERT INTO ai_runs(id,conversation_id,input_id,state,model,config_revision,ticket_status,created_at,updated_at) VALUES ('merge-ai',?,?,'draft','test','1','open',1,1)",
+      source.id,
+      sourceMessage,
+    );
+    await run(
+      env.DB,
+      "INSERT INTO events VALUES ('merge-delivery','delivery_failure',?,'Delivery issue',1)",
+      source.id,
+    );
+    await run(
+      env.DB,
+      "UPDATE conversations SET status='closed',unread=0 WHERE id=?",
+      target.id,
+    );
+    await run(
+      env.DB,
+      "UPDATE conversations SET status='waiting',unread=1 WHERE id=?",
+      source.id,
+    );
+    const originalDraft = { text: "My review in progress", attachment_ids: [] };
+    await request(`/api/drafts/reply:${target.id}`, "PUT", {
+      version: 0,
+      conversation_id: target.id,
+      payload: originalDraft,
+    });
+    const response = await merge(
+      await fresh(target.id),
+      await fresh(source.id),
+    );
+    expect(await response.json()).toEqual({ conversation_id: target.id });
+    expect(response.status).toBe(200);
+    const combined = (await (
+      await request(`/api/conversations/${source.id}`)
+    ).json()) as import("../src/client/Conversation").Detail;
+    expect(combined.conversation).toMatchObject({
+      id: target.id,
+      number: target.number,
+      subject: target.subject,
+      status: "waiting",
+      unread: 1,
+      last_inbound_id: sourceMessage,
+    });
+    expect(combined.messages).toHaveLength(3);
+    expect(
+      combined.messages.find((m) => m.id === sourceMessage)?.attachments?.[0]
+        .id,
+    ).toBe("merge-file");
+    expect(
+      combined.messages.find((m) => m.direction === "outbound")
+        ?.first_opened_at,
+    ).toBe(1234);
+    expect(combined.events[0].detail).toBe("Delivery issue");
+    expect(combined.history).toHaveLength(0);
+    expect(await (await request("/api/attachments/merge-file")).text()).toBe(
+      "Details",
+    );
+    expect(
+      await one(
+        env.DB,
+        "SELECT conversation_id FROM ai_runs WHERE id='merge-ai'",
+      ),
+    ).toEqual({ conversation_id: target.id });
+    expect(
+      JSON.parse(
+        (await one<{ payload: string }>(
+          env.DB,
+          "SELECT payload FROM outgoing",
+        ))!.payload,
+      ).conversation_id,
+    ).toBe(target.id);
+    expect(
+      JSON.parse(
+        (await one<{ payload: string }>(env.DB, "SELECT payload FROM drafts"))!
+          .payload,
+      ),
+    ).toEqual(originalDraft);
+    expect(await (await request("/api/conversations/counts")).json()).toEqual({
+      waiting: 1,
+    });
+    expect(
+      await (await request("/api/conversations?status=trash")).json(),
+    ).toEqual({ items: [], has_more: false });
+    const profile = (await (
+      await request(`/api/contacts/${contact.id}`)
+    ).json()) as ContactHistory;
+    expect(profile.contact.conversation_count).toBe(1);
+    expect(profile.items.map((c) => c.id)).toEqual([target.id]);
+    expect(
+      (
+        (await (
+          await request("/api/conversations/bulk", "POST", {
+            action: "restore",
+            items: [
+              { id: source.id, revision: (await fresh(source.id)).revision },
+            ],
+          })
+        ).json()) as { updated: string[] }
+      ).updated,
+    ).toEqual([]);
+    expect(
+      (
+        await request(`/api/drafts/reply:${source.id}`, "PUT", {
+          version: 0,
+          conversation_id: source.id,
+          payload: { text: "Stale tab" },
+        })
+      ).status,
+    ).toBe(404);
+    await expect(
+      enqueueOutgoing(env, payload(source, "stale-send")),
+    ).rejects.toThrow();
+    expect(await one(env.DB, "SELECT lease_until FROM mailboxes")).toEqual({
+      lease_until: 0,
+    });
+  });
+
+  it("keeps replies to both Gmail threads together and old links working through subsequent merges", async () => {
+    const { target, source } = await pair();
+    expect((await merge(target, source)).status).toBe(200);
+    expect((await merge(target, source)).status).toBe(200);
+    for (const threadId of ["thread", "second-thread"]) {
+      await ingestMessage(
+        env,
+        await getMailbox(env, "mailbox"),
+        "token",
+        message(`new-${threadId}`, { threadId }),
+        [inbox],
+      );
+    }
+    expect(
+      await all(env.DB, "SELECT DISTINCT conversation_id FROM messages"),
+    ).toEqual([{ conversation_id: target.id }]);
+    expect(await all(env.DB, "SELECT * FROM outgoing")).toHaveLength(0);
+    await ingestMessage(
+      env,
+      await getMailbox(env, "mailbox"),
+      "token",
+      message("third-message", { threadId: "third-thread" }),
+      [inbox],
+    );
+    const third = (await one<Conversation>(
+      env.DB,
+      "SELECT * FROM conversations WHERE gmail_thread_id='third-thread'",
+    ))!;
+    expect((await merge(third, await fresh(target.id))).status).toBe(200);
+    expect((await fresh(source.id)).merged_into).toBe(third.id);
+    const oldLink = (await (
+      await request(`/api/conversations/${source.id}`)
+    ).json()) as import("../src/client/Conversation").Detail;
+    expect(oldLink.conversation.id).toBe(third.id);
+    expect(oldLink.messages).toHaveLength(5);
+    expect(
+      await all(env.DB, "SELECT DISTINCT conversation_id FROM thread_links"),
+    ).toEqual([{ conversation_id: third.id }]);
+    const snapshot = Object.fromEntries(
+      await Promise.all(
+        BACKUP_TABLES.map(async (table) => [
+          table,
+          await all<Record<string, unknown>>(env.DB, `SELECT * FROM ${table}`),
+        ]),
+      ),
+    );
+    await env.DB.batch(
+      recoveryStatements(snapshot).map((sql) => env.DB.prepare(sql)),
+    );
+    expect((await fresh(source.id)).merged_into).toBe(third.id);
+    expect(
+      await all(env.DB, "SELECT DISTINCT conversation_id FROM thread_links"),
+    ).toEqual([{ conversation_id: third.id }]);
+  });
+
+  it.each([
+    "draft",
+    "send",
+    "uncertain",
+    "failed",
+    "ai",
+    "lease",
+    "revision",
+    "trash",
+    "customer",
+    "inbox",
+    "mailbox",
+  ])("rejects an unsafe merge: %s", async (blocker) => {
+    const { target, source } = await pair();
+    if (blocker === "draft")
+      await request(`/api/drafts/reply:${source.id}`, "PUT", {
+        version: 0,
+        conversation_id: source.id,
+        payload: { text: "Keep this" },
+      });
+    if (["send", "uncertain", "failed"].includes(blocker)) {
+      await enqueueOutgoing(env, payload(source));
+      if (blocker !== "send")
+        await run(env.DB, "UPDATE outgoing SET state=?", blocker);
+    }
+    if (blocker === "ai")
+      await run(
+        env.DB,
+        "INSERT INTO ai_runs(id,conversation_id,input_id,model,config_revision,ticket_status,created_at,updated_at) VALUES ('busy-ai',?,?,'test','1','open',1,1)",
+        target.id,
+        target.last_inbound_id,
+      );
+    if (blocker === "lease")
+      await run(
+        env.DB,
+        "UPDATE mailboxes SET lease_owner='sync',lease_until=?",
+        Date.now() + 120000,
+      );
+    if (blocker === "revision")
+      await run(
+        env.DB,
+        "UPDATE conversations SET revision=revision+1 WHERE id=?",
+        source.id,
+      );
+    if (blocker === "trash")
+      await run(
+        env.DB,
+        "UPDATE conversations SET deleted_at=1 WHERE id=?",
+        source.id,
+      );
+    if (blocker === "customer") {
+      await run(
+        env.DB,
+        "INSERT INTO contacts(id,name,email,created_at) VALUES ('other','Other','other@example.test',1)",
+      );
+      await run(
+        env.DB,
+        "UPDATE conversations SET contact_id='other' WHERE id=?",
+        source.id,
+      );
+    }
+    if (blocker === "inbox") {
+      await run(
+        env.DB,
+        "INSERT INTO inboxes(id,name,address,from_name,created_at) VALUES ('other','Other','other@example.test','Other',1)",
+      );
+      await run(
+        env.DB,
+        "UPDATE conversations SET inbox_id='other' WHERE id=?",
+        source.id,
+      );
+    }
+    if (blocker === "mailbox")
+      await run(
+        env.DB,
+        "UPDATE conversations SET mailbox_id=NULL WHERE id=?",
+        source.id,
+      );
+    expect((await merge(target, source)).status).toBe(409);
+    expect(
+      await all(
+        env.DB,
+        "SELECT * FROM messages WHERE conversation_id=?",
+        source.id,
+      ),
+    ).toHaveLength(1);
+    expect((await fresh(source.id)).merged_into).toBeNull();
+    expect(
+      await all(
+        env.DB,
+        "SELECT * FROM events WHERE kind='conversation_merged'",
+      ),
+    ).toHaveLength(0);
+  });
+
+  it.each(["draft", "incoming"])(
+    "rechecks %s changes atomically after preflight",
+    async (change) => {
+      const { target, source } = await pair();
+      const { mergeConversations } =
+        await import("../src/worker/conversation-merge");
+      const db = new Proxy(env.DB, {
+        get(db, prop) {
+          if (prop === "batch")
+            return async (statements: D1PreparedStatement[]) => {
+              if (change === "draft")
+                await run(
+                  env.DB,
+                  "INSERT INTO drafts VALUES (?,?,?,1,1)",
+                  `reply:${source.id}`,
+                  source.id,
+                  JSON.stringify({ text: "Just typed" }),
+                );
+              else
+                await run(
+                  env.DB,
+                  "UPDATE conversations SET revision=revision+1 WHERE id=?",
+                  target.id,
+                );
+              return db.batch(statements);
+            };
+          const value = Reflect.get(db, prop, db);
+          return typeof value === "function" ? value.bind(db) : value;
+        },
+      });
+      await expect(
+        mergeConversations(
+          { ...env, DB: db },
+          target.id,
+          source.id,
+          target.revision,
+          source.revision,
+        ),
+      ).rejects.toThrow("changed or has unfinished work");
+      expect(
+        await all(
+          env.DB,
+          "SELECT * FROM messages WHERE conversation_id=?",
+          source.id,
+        ),
+      ).toHaveLength(1);
+      expect((await fresh(source.id)).merged_into).toBeNull();
+      expect(await one(env.DB, "SELECT lease_until FROM mailboxes")).toEqual({
+        lease_until: 0,
+      });
+    },
+  );
 });

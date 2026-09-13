@@ -21,7 +21,7 @@ const listQuery = pageQuery.extend({
 // The same inbox scope applies to membership, counts, activity, and history.
 const contactStats = (inbox: string) => `WITH activity AS (
   SELECT contact_id, COUNT(*) conversation_count, MAX(updated_at) last_activity_at
-  FROM conversations ${inbox ? "WHERE inbox_id=?" : ""} GROUP BY contact_id
+  FROM conversations WHERE merged_into IS NULL ${inbox ? "AND inbox_id=?" : ""} GROUP BY contact_id
 )`;
 const contactSelect = `SELECT p.id,p.name,p.email,p.created_at,
   COALESCE(a.conversation_count,0) conversation_count,a.last_activity_at
@@ -69,7 +69,7 @@ contactRoutes.get("/contacts/:id", async (c) => {
     c.env.DB,
     `SELECT c.*,p.name contact_name,p.email contact_email,i.name inbox_name
      FROM conversations c JOIN contacts p ON p.id=c.contact_id JOIN inboxes i ON i.id=c.inbox_id
-     WHERE c.contact_id=?${inbox ? " AND c.inbox_id=?" : ""}
+     WHERE c.contact_id=? AND c.merged_into IS NULL${inbox ? " AND c.inbox_id=?" : ""}
      ORDER BY c.updated_at DESC,c.id ASC LIMIT ${pageSize + 1} OFFSET ?`,
     id,
     ...(inbox ? [inbox] : []),

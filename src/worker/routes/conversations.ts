@@ -12,6 +12,7 @@ import { all, AppError, now, one, recordEvent, run, uid } from "../db";
 import { customerIntegration } from "../integrations";
 import { cleanHtml, emailCsp, emailDocument, textToHtml } from "../mail";
 import { composeSchema, enqueueOutgoing, reconcileOutgoing } from "../outbox";
+import { mergeConversations } from "../conversation-merge";
 export const conversationRoutes = new Hono<Bindings>();
 const conversationSelect =
   "SELECT c.*,p.name contact_name,p.email contact_email,i.name inbox_name FROM conversations c JOIN contacts p ON p.id=c.contact_id JOIN inboxes i ON i.id=c.inbox_id";
@@ -26,7 +27,7 @@ conversationRoutes.get("/conversations/counts", async (c) => {
   const inbox = c.req.query("inbox");
   const rows = await all<{ status: string; count: number }>(
     c.env.DB,
-    `SELECT CASE WHEN deleted_at IS NOT NULL THEN 'trash' ELSE status END status,COUNT(*) count FROM conversations${inbox ? " WHERE inbox_id=?" : ""} GROUP BY CASE WHEN deleted_at IS NOT NULL THEN 'trash' ELSE status END`,
+    `SELECT CASE WHEN deleted_at IS NOT NULL THEN 'trash' ELSE status END status,COUNT(*) count FROM conversations WHERE merged_into IS NULL${inbox ? " AND inbox_id=?" : ""} GROUP BY CASE WHEN deleted_at IS NOT NULL THEN 'trash' ELSE status END`,
     ...(inbox ? [inbox] : []),
   );
   return c.json(Object.fromEntries(rows.map((row) => [row.status, row.count])));
@@ -37,6 +38,7 @@ conversationRoutes.get("/conversations", async (c) => {
     q = c.req.query("q")?.slice(0, 150),
     offset = Math.max(0, Number(c.req.query("offset")) || 0);
   const where: string[] = [
+      "c.merged_into IS NULL",
       status === "trash" ? "c.deleted_at IS NOT NULL" : "c.deleted_at IS NULL",
     ],
     params: unknown[] = [];
@@ -125,7 +127,7 @@ conversationRoutes.post("/conversations/bulk", async (c) => {
   const results = await c.env.DB.batch<{ id: string }>(
     items.map((item) =>
       c.env.DB.prepare(
-        `UPDATE conversations SET ${change},revision=revision+1 WHERE id=? AND revision=? AND ${guard}${sendGuard} RETURNING id`,
+        `UPDATE conversations SET ${change},revision=revision+1 WHERE id=? AND revision=? AND merged_into IS NULL AND ${guard}${sendGuard} RETURNING id`,
       ).bind(...values, item.id, item.revision),
     ),
   );
@@ -143,10 +145,30 @@ conversationRoutes.post("/conversations/bulk", async (c) => {
     }));
   return c.json({ updated, skipped });
 });
+conversationRoutes.post("/conversations/:id/merge", async (c) => {
+  const body = z
+    .object({
+      source_id: z.string().min(1).max(160),
+      source_revision: z.number().int().nonnegative(),
+      target_revision: z.number().int().nonnegative(),
+    })
+    .strict()
+    .parse(await c.req.json());
+  return c.json(
+    await mergeConversations(
+      c.env,
+      c.req.param("id"),
+      body.source_id,
+      body.target_revision,
+      body.source_revision,
+    ),
+  );
+});
 conversationRoutes.get("/conversations/:id", async (c) => {
   const conversation = await one<Conversation>(
     c.env.DB,
-    `${conversationSelect} WHERE c.id=?`,
+    `${conversationSelect} WHERE c.id=COALESCE((SELECT merged_into FROM conversations WHERE id=?),?)`,
+    c.req.param("id"),
     c.req.param("id"),
   );
   if (!conversation) throw new AppError(404, "Conversation not found.");
@@ -289,7 +311,7 @@ conversationRoutes.post("/attachments", async (c) => {
     conversationId &&
     !(await one(
       c.env.DB,
-      "SELECT id FROM conversations WHERE id=?",
+      "SELECT id FROM conversations WHERE id=? AND deleted_at IS NULL",
       conversationId,
     ))
   )
@@ -313,9 +335,9 @@ conversationRoutes.post("/attachments", async (c) => {
     content_id: inline ? `${id}@smart-inbox` : null,
     created_at: now(),
   };
-  await run(
+  const inserted = await run(
     c.env.DB,
-    "INSERT INTO attachments VALUES (?,?,?,?,?,?,?,?,?)",
+    "INSERT INTO attachments SELECT ?,?,?,?,?,?,?,?,? WHERE ? IS NULL OR EXISTS(SELECT 1 FROM conversations WHERE id=? AND deleted_at IS NULL)",
     a.id,
     a.conversation_id,
     a.message_id,
@@ -325,7 +347,16 @@ conversationRoutes.post("/attachments", async (c) => {
     a.size,
     a.content_id,
     a.created_at,
+    conversationId,
+    conversationId,
   );
+  if (!inserted.meta.changes) {
+    await c.env.FILES.delete(key);
+    throw new AppError(
+      409,
+      "This conversation changed. Open it again before attaching a file.",
+    );
+  }
   return c.json(a);
 });
 conversationRoutes.get("/attachments/:id/inline", async (c) => {

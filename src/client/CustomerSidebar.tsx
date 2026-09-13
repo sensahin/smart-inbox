@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   ChevronDown,
   Copy,
@@ -14,6 +14,7 @@ import type { Detail } from "./Conversation";
 import { api, dateTime, initials, relative, useResource } from "./api";
 import { FreemiusDetails } from "./FreemiusDetails";
 import { CustomerBadge, CustomerLink } from "./CustomerCards";
+import { ConversationPreview } from "./ConversationPreview";
 import { ActionMenu } from "./ActionMenu";
 import { label, records } from "../shared/customer-data";
 
@@ -32,6 +33,8 @@ export function CustomerSidebar({
   reload: () => void;
   notify: (s: string) => void;
 }) {
+  const [previewId, setPreviewId] = useState<string | null>(null);
+  const previewTrigger = useRef<HTMLButtonElement | null>(null);
   const [force, setForce] = useState(0),
     [linking, setLinking] = useState(false),
     [email, setEmail] = useState(d.contact.freemius_email || ""),
@@ -117,7 +120,10 @@ export function CustomerSidebar({
             <div className="history-list">
               {d.history.slice(0, 6).map((c) => (
                 <button
-                  onClick={() => select(c.id)}
+                  onClick={(event) => {
+                    previewTrigger.current = event.currentTarget;
+                    setPreviewId(c.id);
+                  }}
                   key={c.id}
                   title={c.subject}
                 >
@@ -302,6 +308,25 @@ export function CustomerSidebar({
           <Updated result={m} refreshing={refreshing} />
         </section>
       </div>
+      {previewId && (
+        <ConversationPreview
+          key={previewId}
+          id={previewId}
+          current={d.conversation}
+          returnFocus={previewTrigger.current}
+          close={() => setPreviewId(null)}
+          open={(id) => {
+            setPreviewId(null);
+            select(id);
+          }}
+          merged={() => {
+            setPreviewId(null);
+            notify("Conversations merged.");
+            reload();
+          }}
+          reloadCurrent={reload}
+        />
+      )}
     </aside>
   );
 }

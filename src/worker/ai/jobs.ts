@@ -54,7 +54,7 @@ export async function queueDraft(
   const id = uid();
   await run(
     env.DB,
-    "INSERT OR IGNORE INTO ai_runs(id,conversation_id,input_id,attempt,model,config_revision,ticket_status,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?)",
+    "INSERT OR IGNORE INTO ai_runs(id,conversation_id,input_id,attempt,model,config_revision,ticket_status,created_at,updated_at) SELECT ?,?,?,?,?,?,?,?,? WHERE EXISTS(SELECT 1 FROM conversations WHERE id=? AND deleted_at IS NULL AND revision=? AND last_inbound_id=?)",
     id,
     c.id,
     m.id,
@@ -64,6 +64,9 @@ export async function queueDraft(
     c.status,
     now(),
     now(),
+    c.id,
+    c.revision,
+    m.id,
   );
   const saved = await one<AIRun>(
     env.DB,

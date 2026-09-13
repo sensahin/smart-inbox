@@ -296,7 +296,7 @@ settingsRoutes.put("/drafts/:id", async (c) => {
     body.conversation_id &&
     !(await one(
       c.env.DB,
-      "SELECT id FROM conversations WHERE id=?",
+      "SELECT id FROM conversations WHERE id=? AND merged_into IS NULL",
       body.conversation_id,
     ))
   )
@@ -305,20 +305,23 @@ settingsRoutes.put("/drafts/:id", async (c) => {
     body.version === 0
       ? await run(
           c.env.DB,
-          "INSERT OR IGNORE INTO drafts VALUES (?,?,?,?,?)",
+          "INSERT OR IGNORE INTO drafts SELECT ?,?,?,?,? WHERE ? IS NULL OR EXISTS(SELECT 1 FROM conversations WHERE id=? AND merged_into IS NULL)",
           c.req.param("id"),
           body.conversation_id,
           payload,
           1,
           now(),
+          body.conversation_id,
+          body.conversation_id,
         )
       : await run(
           c.env.DB,
-          "UPDATE drafts SET payload=?,version=version+1,updated_at=? WHERE id=? AND version=?",
+          "UPDATE drafts SET payload=?,version=version+1,updated_at=? WHERE id=? AND version=? AND conversation_id IS ? AND (conversation_id IS NULL OR EXISTS(SELECT 1 FROM conversations WHERE id=drafts.conversation_id AND merged_into IS NULL))",
           payload,
           now(),
           c.req.param("id"),
           body.version,
+          body.conversation_id,
         );
   if (!result.meta.changes)
     throw new AppError(
