@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { ChevronDown, RotateCcw } from "lucide-react";
+import { ChevronDown, Reply, RotateCcw } from "lucide-react";
 import type {
   Contact,
   Conversation,
@@ -53,7 +53,7 @@ export function ConversationView({
     readReady ? `/conversations/${id}` : null,
     refresh,
   );
-  const [composerKey, setComposerKey] = useState(0);
+  const [replyOpen, setReplyOpen] = useState(false);
   const [actionSaving, setActionSaving] = useState(false);
   const actionInFlight = useRef(false);
   useEffect(() => {
@@ -347,22 +347,33 @@ export function ConversationView({
                   )}
               </div>
             ))}
-            {c.deleted_at === null && (
-              <Composer
-                key={`${id}:${composerKey}`}
-                inboxes={inboxes}
-                conversation={c}
-                contact={d.contact}
-                lastMessage={[...messages]
-                  .reverse()
-                  .find((m) => m.direction === "inbound")}
-                onSent={() => {
-                  setComposerKey((v) => v + 1);
-                  reload();
-                }}
-                notify={notify}
-              />
-            )}
+            {c.deleted_at === null &&
+              (replyOpen ? (
+                <Composer
+                  autoFocus
+                  inboxes={inboxes}
+                  conversation={c}
+                  contact={d.contact}
+                  lastMessage={[...messages]
+                    .reverse()
+                    .find((m) => m.direction === "inbound")}
+                  onSent={() => {
+                    setReplyOpen(false);
+                    reload();
+                  }}
+                  notify={notify}
+                />
+              ) : (
+                <div className="reply-prompt">
+                  <button
+                    type="button"
+                    className="button primary"
+                    onClick={() => setReplyOpen(true)}
+                  >
+                    <Reply size={16} aria-hidden="true" /> Reply
+                  </button>
+                </div>
+              ))}
           </div>
         </div>
       </section>

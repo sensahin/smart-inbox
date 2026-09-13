@@ -53,6 +53,7 @@ export function Composer({
   lastMessage,
   onSent,
   notify,
+  autoFocus = false,
 }: {
   inboxes: Inbox[];
   conversation?: Conversation;
@@ -60,6 +61,7 @@ export function Composer({
   lastMessage?: Message;
   onSent: (id: string) => void;
   notify: (s: string) => void;
+  autoFocus?: boolean;
 }) {
   const draftId = conversation
     ? `reply:${conversation.id}`
@@ -149,6 +151,9 @@ export function Composer({
     }
     setLoaded(true);
   }, [draft.loading, draft.error, draft.data, editor, lastMessage, contact]);
+  useEffect(() => {
+    if (autoFocus && loaded) editor?.commands.focus("end");
+  }, [autoFocus, loaded, editor]);
   useEffect(() => {
     current.current = form;
   }, [form]);

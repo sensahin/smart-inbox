@@ -734,6 +734,11 @@ a svg {
   max-width: 940px;
   margin: 0 auto;
 }
+.reply-prompt {
+  display: flex;
+  justify-content: center;
+  padding: 8px 0 4px;
+}
 .conversation-title {
   display: flex;
   align-items: flex-start;
