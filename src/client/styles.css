@@ -8,7 +8,7 @@
   --green-dark: #10513e;
   --border: #dfe6e1;
   --muted: #617167;
-  --sidebar: 220px;
+  --sidebar: 250px;
 }
 * {
   box-sizing: border-box;
@@ -1128,7 +1128,7 @@ a svg {
   min-height: 30px;
 }
 .customer-sidebar {
-  width: 340px;
+  width: 282px;
   flex-shrink: 0;
   border-left: 1px solid var(--border);
   overflow-y: auto;
@@ -1594,41 +1594,51 @@ a svg {
   color: var(--muted);
   line-height: 1.5;
 }
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
 .history-list button {
-  display: block;
-  width: 100%;
-  text-align: left;
-  padding: 10px 0;
-}
-.history-list button:first-child {
-  padding-top: 0;
-}
-.history-list button:last-child {
-  padding-bottom: 0;
-}
-.history-list button + button {
-  border-top: 1px solid var(--border);
-}
-.history-list strong {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  overflow: hidden;
-  font-size: 13px;
-  font-weight: 500;
-  line-height: 1.5;
-  overflow-wrap: anywhere;
-}
-.history-meta {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-top: 6px;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  border-radius: 5px;
+  font-size: 13px;
+  line-height: 1.5;
 }
-.history-meta small {
-  color: var(--muted);
-  font-size: 11px;
+.history-list button:hover {
+  color: var(--green);
+  background: #f6f8f7;
+}
+.history-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: stretch;
+  flex: 0 0 28px;
+  min-height: 34px;
+  border-radius: 5px;
+  color: #7c8c82;
+  background: #f6f8f7;
+}
+.history-subject {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  margin: 6px 0;
+  overflow: hidden;
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+.history-more,
+.history-more .history-icon {
+  color: var(--green);
+}
+.history-more .history-icon {
+  background: #e8f3ed;
 }
 .notice {
   font-size: 13px;
@@ -2395,9 +2405,6 @@ textarea {
   background: transparent;
 }
 @media (max-width: 1279px) {
-  .customer-sidebar {
-    width: 300px;
-  }
   .detail-scroll {
     padding: 28px;
   }

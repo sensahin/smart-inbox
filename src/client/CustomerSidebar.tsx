@@ -6,6 +6,7 @@ import {
   ExternalLink,
   Link as LinkIcon,
   Mail,
+  MoreHorizontal,
   RefreshCw,
 } from "lucide-react";
 import type { ProviderResult } from "../shared/types";
@@ -106,10 +107,7 @@ export function CustomerSidebar({
       <div className="customer-cards">
         <section className="customer-section" aria-labelledby="history-heading">
           <div className="section-title">
-            <h3 id="history-heading">
-              <Mail size={16} /> Conversations
-            </h3>
-            <span className="count-badge">{d.history.length + 1}</span>
+            <h3 id="history-heading">Conversations</h3>
           </div>
           {!d.history.length ? (
             <p className="customer-note">
@@ -117,27 +115,29 @@ export function CustomerSidebar({
             </p>
           ) : (
             <div className="history-list">
-              {d.history.map((c) => (
-                <button onClick={() => select(c.id)} key={c.id}>
-                  <strong>{c.subject}</strong>
-                  <span className="history-meta">
-                    <small>
-                      #{c.number} · {relative(c.updated_at)}
-                    </small>
-                    <CustomerBadge
-                      tone={
-                        c.status === "closed"
-                          ? "neutral"
-                          : c.status === "waiting"
-                            ? "warning"
-                            : "positive"
-                      }
-                    >
-                      {c.status}
-                    </CustomerBadge>
+              {d.history.slice(0, 6).map((c) => (
+                <button
+                  onClick={() => select(c.id)}
+                  key={c.id}
+                  title={c.subject}
+                >
+                  <span className="history-icon" aria-hidden="true">
+                    <Mail size={16} />
                   </span>
+                  <span className="history-subject">{c.subject}</span>
                 </button>
               ))}
+              {d.history.length > 6 && (
+                <button
+                  className="history-more"
+                  onClick={() => openContact(d.contact.id)}
+                >
+                  <span className="history-icon" aria-hidden="true">
+                    <MoreHorizontal size={16} />
+                  </span>
+                  View all conversations
+                </button>
+              )}
             </div>
           )}
         </section>

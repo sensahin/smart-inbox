@@ -487,7 +487,8 @@ export function App() {
             select={choose}
             openContact={(id) => {
               setView("contacts");
-              selectContact(id);
+              setInboxId("");
+              selectContact(id, "");
             }}
             close={() => {
               returnToList.current = true;
