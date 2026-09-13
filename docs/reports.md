@@ -27,11 +27,11 @@ Automatic acknowledgements, unsent drafts, and conversations in Trash are exclud
 
 All durations use elapsed time, including nights and weekends. Average is the arithmetic mean, median is the middle sample, and the 90th percentile is the duration at or below which 90% of samples fall. A dash means there is no eligible timing sample; it does not mean zero. Charts include days without activity.
 
-Resolution tracking begins when the reporting migration is applied. Existing closed tickets without a recorded closure have no resolution timestamp; the report displays its coverage date. Status changes are recorded atomically for manual actions, bulk actions, accepted sends, incoming replies, and bounces. A reopened conversation leaves resolution metrics until it is closed again. Its latest closure determines the period where it is counted, so past reports can change as conversations reopen, close, or move to Trash.
+A reopened conversation leaves resolution metrics until it is closed again. Its latest closure determines the period where it is counted, so past reports can change as conversations reopen, close, or move to Trash.
 
 ## CSV exports
 
-At the bottom of the report, choose **Daily metrics** or **Selected conversation metric**, then **Export CSV**. Conversation exports include every matching row, including rows beyond the displayed page. Daily exports include sample counts and the closure tracking start date. Durations are exported in seconds. Calendar dates use the workspace time zone; individual closure timestamps are explicitly UTC.
+At the bottom of the report, choose **Daily metrics** or **Selected conversation metric**, then **Export CSV**. Conversation exports include every matching row, including rows beyond the displayed page. Daily exports include sample counts. Durations are exported in seconds. Calendar dates use the workspace time zone; individual closure timestamps are explicitly UTC.
 
 Exports require the same owner authentication as the dashboard, are not publicly cached, and contain customer information. Spreadsheet formula prefixes are escaped. Keep downloaded reports private.
 

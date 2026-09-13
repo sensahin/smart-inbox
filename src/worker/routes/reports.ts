@@ -219,7 +219,6 @@ reportRoutes.get("/reports/export", async (c) => {
             "Response samples",
             "Resolution average (seconds)",
             "Resolution samples",
-            "Resolution tracking started (UTC)",
           ],
           ...report.days.map((d) => [
             d.date,
@@ -234,9 +233,6 @@ reportRoutes.get("/reports/export", async (c) => {
             d.response.count,
             seconds(d.resolution.average),
             d.resolution.count,
-            report.reporting_started_at === null
-              ? "Unknown"
-              : new Date(report.reporting_started_at).toISOString(),
           ]),
         ]
       : [

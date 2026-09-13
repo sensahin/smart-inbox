@@ -70,7 +70,7 @@ function Change({
   if (value === null || previous === null || previous === 0)
     return (
       <small className="report-change">
-        {value === 0 && previous === 0 ? "No change" : "No prior baseline"}
+        {value === 0 && previous === 0 ? "No change" : "—"}
       </small>
     );
   const percent = ((value - previous) / previous) * 100;
@@ -92,7 +92,6 @@ function Metric({
   duration,
   samples,
   onClick,
-  coverage,
 }: {
   name: string;
   value: number | null;
@@ -102,7 +101,6 @@ function Metric({
   duration?: boolean;
   samples?: number;
   onClick?: () => void;
-  coverage?: boolean;
 }) {
   const display = duration
     ? durationLabel(value)
@@ -132,12 +130,9 @@ function Metric({
           {samples.toLocaleString()} sample{samples === 1 ? "" : "s"}
         </span>
       )}
-      {compare &&
-        (coverage ? (
-          <small className="report-change">Limited closure history</small>
-        ) : (
-          <Change value={value} previous={previous} lowerBetter={duration} />
-        ))}
+      {compare && (
+        <Change value={value} previous={previous} lowerBetter={duration} />
+      )}
     </div>
   );
 }
@@ -246,11 +241,14 @@ export function Reports({
         key={key}
         name={name}
         value={report.metrics[key]}
-        previous={report.previous[key]}
+        previous={
+          key === "resolved" && report.coverage_incomplete
+            ? null
+            : report.previous[key]
+        }
         help={reportDefinitions[key]}
         compare={compare}
         onClick={() => inspect(key)}
-        coverage={key === "resolved" && report.coverage_incomplete}
       />
     );
   const timeCard = (
@@ -262,13 +260,16 @@ export function Reports({
         key={key}
         name={name}
         value={report.metrics[key].average}
-        previous={report.previous[key].average}
+        previous={
+          key === "resolution" && report.coverage_incomplete
+            ? null
+            : report.previous[key].average
+        }
         samples={report.metrics[key].count}
         help={reportDefinitions[key]}
         compare={compare}
         duration
         onClick={() => inspect(key === "resolution" ? "resolved" : key)}
-        coverage={key === "resolution" && report.coverage_incomplete}
       />
     );
   return (
@@ -473,19 +474,6 @@ export function Reports({
                 </>
               )}
             </div>
-            {report.coverage_incomplete && (
-              <p className="report-coverage">
-                <Info size={16} />
-                <span>
-                  Closure history{" "}
-                  {report.reporting_started_at
-                    ? `starts ${reportDate(report.reporting_started_at, timezone)}`
-                    : "is not available yet"}
-                  . Earlier resolutions cannot be calculated. Reopened
-                  conversations are counted again only after they are closed.
-                </span>
-              </p>
-            )}
             <DailyChart
               days={report.days}
               performance={tab === "performance"}

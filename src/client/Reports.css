@@ -378,22 +378,6 @@ button.report-metric-value:hover {
   color: var(--muted);
   text-align: right;
 }
-.report-coverage {
-  display: flex;
-  align-items: start;
-  gap: 8px;
-  padding: 12px 14px;
-  background: #f4f1e8;
-  color: #6c5935;
-  border-radius: 6px;
-  font-size: 12px;
-  margin: 0 0 20px;
-  line-height: 1.6;
-}
-.report-coverage svg {
-  flex-shrink: 0;
-  margin-top: 2px;
-}
 .report-conversations {
   scroll-margin-top: 16px;
 }
