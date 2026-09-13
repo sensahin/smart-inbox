@@ -485,6 +485,10 @@ export function App() {
             onRead={refreshUnread}
             notify={notify}
             select={choose}
+            openContact={(id) => {
+              setView("contacts");
+              selectContact(id);
+            }}
             close={() => {
               returnToList.current = true;
               choose("");

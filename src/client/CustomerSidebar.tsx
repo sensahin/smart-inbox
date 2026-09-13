@@ -3,6 +3,7 @@ import {
   ChevronDown,
   Copy,
   CreditCard,
+  ExternalLink,
   Link as LinkIcon,
   Mail,
   RefreshCw,
@@ -12,18 +13,21 @@ import type { Detail } from "./Conversation";
 import { api, dateTime, initials, relative, useResource } from "./api";
 import { FreemiusDetails } from "./FreemiusDetails";
 import { CustomerBadge, CustomerLink } from "./CustomerCards";
+import { ActionMenu } from "./ActionMenu";
 import { label, records } from "../shared/customer-data";
 
 export function CustomerSidebar({
   detail: d,
   refresh,
   select,
+  openContact,
   reload,
   notify,
 }: {
   detail: Detail;
   refresh: number;
   select: (id: string) => void;
+  openContact: (id: string) => void;
   reload: () => void;
   notify: (s: string) => void;
 }) {
@@ -65,42 +69,40 @@ export function CustomerSidebar({
       className="customer-sidebar"
       aria-label="Customer details"
     >
-      <div className="customer-heading">
-        <h2>Customer</h2>
-        <div className="customer-heading-actions">
-          <button
-            className="icon-button"
-            aria-label="Refresh customer details"
-            disabled={refreshing}
-            onClick={() => void refreshProviders()}
-          >
-            <RefreshCw
-              size={15}
-              className={refreshing ? "refreshing" : undefined}
-            />
-          </button>
-        </div>
-      </div>
-      <div className="customer-profile">
-        <span className="avatar hue-1">{initials(d.contact.name)}</span>
-        <div>
-          <h3>{d.contact.name}</h3>
-          <div className="customer-email">
-            <span title={d.contact.email}>{d.contact.email}</span>
-            <button
-              aria-label="Copy email"
-              onClick={() =>
+      <section className="customer-profile" aria-label="Customer profile">
+        <span className="avatar hue-1" aria-hidden="true">
+          {initials(d.contact.name)}
+        </span>
+        <ActionMenu
+          label="Customer actions"
+          items={[
+            {
+              label: "View full profile",
+              icon: <ExternalLink size={16} />,
+              onSelect: () => openContact(d.contact.id),
+            },
+            {
+              label: "Copy email",
+              icon: <Copy size={16} />,
+              onSelect: () =>
                 void navigator.clipboard
                   .writeText(d.contact.email)
                   .then(() => notify("Email copied."))
-                  .catch(() => notify("Email could not be copied."))
-              }
-            >
-              <Copy size={13} />
-            </button>
-          </div>
-        </div>
-      </div>
+                  .catch(() => notify("Email could not be copied.")),
+            },
+            {
+              label: refreshing ? "Refreshing…" : "Refresh details",
+              icon: <RefreshCw size={16} />,
+              disabled: refreshing,
+              onSelect: () => void refreshProviders(),
+            },
+          ]}
+        />
+        <h3>{d.contact.name}</h3>
+        <a className="customer-email" href={`mailto:${d.contact.email}`}>
+          {d.contact.email}
+        </a>
+      </section>
       <div className="customer-cards">
         <section className="customer-section" aria-labelledby="history-heading">
           <div className="section-title">

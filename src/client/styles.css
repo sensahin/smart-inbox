@@ -640,10 +640,10 @@ a svg {
   width: 36px;
   height: 36px;
 }
-.conversation-menu {
+.action-menu {
   position: relative;
 }
-.conversation-menu-items {
+.action-menu-items {
   position: absolute;
   top: calc(100% + 6px);
   right: 0;
@@ -655,7 +655,7 @@ a svg {
   background: #fff;
   box-shadow: 0 8px 24px #23392e20;
 }
-.conversation-menu-items button {
+.action-menu-items button {
   width: 100%;
   display: flex;
   align-items: center;
@@ -666,11 +666,15 @@ a svg {
   font-size: 13px;
   line-height: 20px;
 }
-.conversation-menu-items button:hover,
-.conversation-menu-items button:focus-visible {
+.action-menu-items button > span {
+  display: flex;
+  flex-shrink: 0;
+}
+.action-menu-items button:hover,
+.action-menu-items button:focus-visible {
   background: #edf3ef;
 }
-.conversation-menu-items .trash-action {
+.action-menu-items .danger-action {
   color: #a43d35;
 }
 .ticket-id {
@@ -872,14 +876,6 @@ a svg {
   font-size: 12px;
   color: var(--muted);
   margin-top: 4px;
-}
-.customer-heading h2 {
-  font-size: 14px;
-  letter-spacing: 0;
-  color: #3d5145;
-}
-.customer-heading-actions {
-  display: flex;
 }
 .composer {
   border: 1px solid #a9c5b5;
@@ -1139,55 +1135,52 @@ a svg {
   background: #f6f8f7;
   scrollbar-gutter: stable;
 }
-.customer-heading {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  background: #f6f8f7;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 12px 10px 18px;
-  border-bottom: 1px solid var(--border);
-}
 .customer-profile {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 20px 16px;
+  position: relative;
+  margin: 36px 12px 12px;
+  padding: 36px 16px 18px;
+  border: 1px solid #d9e2dc;
+  border-radius: 9px;
+  background: #fff;
 }
-.customer-profile > div {
-  min-width: 0;
-  flex: 1;
+.customer-profile > .avatar {
+  position: absolute;
+  top: -24px;
+  left: 16px;
+  width: 48px;
+  height: 48px;
+  border: 3px solid #fff;
+  font-size: 16px;
+}
+.customer-profile > .action-menu {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+}
+.customer-profile .icon-button {
+  width: 32px;
+  height: 32px;
 }
 .customer-profile h3 {
+  padding-right: 20px;
   font-size: 15px;
+  line-height: 1.4;
   letter-spacing: 0;
   font-weight: 600;
-}
-.customer-profile .avatar {
-  flex-shrink: 0;
+  overflow-wrap: anywhere;
 }
 .customer-email {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  color: var(--muted);
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  color: var(--green);
   font-size: 13px;
-  margin-top: 3px;
+  line-height: 1.5;
+  margin-top: 5px;
+  overflow-wrap: anywhere;
 }
-.customer-email span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.customer-email button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  min-width: 30px;
-  min-height: 30px;
+.customer-email:hover {
+  text-decoration: underline;
 }
 .customer-cards {
   display: flex;
@@ -1636,19 +1629,6 @@ a svg {
 .history-meta small {
   color: var(--muted);
   font-size: 11px;
-}
-.refreshing {
-  animation: customer-refresh 1s linear infinite;
-}
-@keyframes customer-refresh {
-  to {
-    transform: rotate(360deg);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .refreshing {
-    animation: none;
-  }
 }
 .notice {
   font-size: 13px;
@@ -2452,9 +2432,6 @@ textarea {
     border-left: 0;
     border-top: 1px solid var(--border);
   }
-  .customer-heading {
-    position: static;
-  }
 }
 @media (max-width: 960px) {
   .list-columns,
@@ -2595,7 +2572,7 @@ textarea {
     height: 44px;
   }
   .ticket-status select,
-  .conversation-menu-items button {
+  .action-menu-items button {
     min-height: 44px;
   }
   .toast button {

@@ -38,6 +38,7 @@ export function ConversationView({
   onRead,
   notify,
   select,
+  openContact,
   close,
 }: {
   id: string;
@@ -47,6 +48,7 @@ export function ConversationView({
   onRead: () => void;
   notify: Notify;
   select: (id: string) => void;
+  openContact: (id: string) => void;
   close: () => void;
 }) {
   const titleRef = useRef<HTMLHeadingElement>(null);
@@ -217,12 +219,6 @@ export function ConversationView({
                 </button>
               </div>
             )}
-            {!!c.history_missing && (
-              <div className="notice neutral">
-                This conversation began before the mailbox was connected.
-                Earlier messages were not imported.
-              </div>
-            )}
             {d.events.map((e, i) => (
               <div className="notice danger" key={i}>
                 {e.detail}
@@ -326,6 +322,7 @@ export function ConversationView({
         detail={d}
         refresh={refresh}
         select={select}
+        openContact={openContact}
         reload={reload}
         notify={notify}
       />
