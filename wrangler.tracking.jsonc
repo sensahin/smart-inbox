@@ -1,0 +1,19 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "smart-inbox-opens",
+  "main": "src/worker/tracking-entry.ts",
+  "compatibility_date": "2026-09-13",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "preview_urls": false,
+  "observability": { "enabled": false },
+  "vars": { "APP_ORIGIN": "" },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "smart-inbox",
+      "database_id": "",
+      "migrations_dir": "migrations",
+    },
+  ],
+}

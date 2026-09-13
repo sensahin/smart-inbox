@@ -1,0 +1,245 @@
+.contacts-navigation {
+  margin-top: 18px;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+.contacts-page .list-toolbar h1 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.contacts-filters {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px 24px;
+}
+.contacts-filters .search-field {
+  width: min(440px, 60%);
+}
+.contacts-filters select {
+  min-height: 42px;
+  max-width: 240px;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 8px 12px;
+  background: #fafcfb;
+  font-size: 13px;
+}
+.contacts-table-scroll {
+  padding: 0 24px 16px;
+  overflow-x: auto;
+}
+.contacts-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 14px;
+}
+.contacts-table th {
+  height: 48px;
+  text-align: left;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+  background: #fafcfb;
+}
+.contacts-table th,
+.contacts-table td {
+  border-bottom: 1px solid var(--border);
+  padding: 12px;
+}
+.contacts-table th:first-child {
+  width: 28%;
+}
+.contacts-table th:nth-child(2) {
+  width: 38%;
+}
+.contacts-table th:nth-child(3) {
+  width: 17%;
+}
+.contacts-table th:last-child {
+  width: 17%;
+}
+.contacts-table td {
+  height: 68px;
+}
+.contacts-table tbody tr:hover {
+  background: #f5f9f6;
+}
+.contact-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 4px 0;
+  text-align: left;
+}
+.contact-sort.active {
+  color: var(--green);
+}
+.contact-sort svg {
+  flex-shrink: 0;
+}
+.contact-name-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  min-height: 36px;
+}
+.contact-name-link strong {
+  font-weight: 550;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.contact-cell-text {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.contacts-table a:hover,
+.contact-breadcrumb a:hover {
+  color: var(--green);
+  text-decoration: underline;
+}
+.contacts-table time {
+  color: var(--muted);
+  white-space: nowrap;
+  font-size: 13px;
+}
+.contacts-table .count-badge {
+  font-variant-numeric: tabular-nums;
+}
+.contact-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.contact-breadcrumb a {
+  color: var(--muted);
+}
+.contacts-page .list-toolbar .contact-breadcrumb h1 {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.contact-overview {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 24px 24px;
+}
+.contact-overview > div {
+  min-width: 0;
+}
+.contact-overview strong,
+.contact-overview a {
+  display: block;
+  overflow-wrap: anywhere;
+}
+.contact-overview a {
+  margin-top: 4px;
+  color: var(--green);
+  font-size: 13px;
+}
+.contact-overview > .muted {
+  margin-left: auto;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.contact-history-table th:first-child {
+  width: 48%;
+}
+.contact-history-table th:nth-child(2) {
+  width: 22%;
+}
+.contact-history-table th:nth-child(3) {
+  width: 14%;
+}
+.contact-history-table th:last-child {
+  width: 16%;
+}
+.contact-conversation-link {
+  display: block;
+  line-height: 1.5;
+}
+.contact-conversation-link strong,
+.contact-conversation-link > span {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.contact-conversation-link strong {
+  font-weight: 550;
+}
+.contact-conversation-link > span {
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 3px;
+}
+.contacts-error {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 24px;
+  color: #943f36;
+}
+.contacts-loading {
+  padding: 24px;
+  color: var(--muted);
+}
+.contacts-pagination {
+  align-items: center;
+  gap: 12px;
+  border-top: 1px solid var(--border);
+  padding: 12px 24px;
+}
+.contacts-pagination > div {
+  display: flex;
+  gap: 8px;
+}
+.contacts-pagination .button {
+  min-height: 34px;
+  padding: 6px 10px;
+  font-size: 13px;
+}
+@media (max-width: 960px) {
+  .contacts-table {
+    min-width: 680px;
+  }
+}
+@media (max-width: 760px) {
+  .contacts-filters {
+    padding: 16px;
+    flex-wrap: wrap;
+  }
+  .contacts-filters .search-field {
+    width: 100%;
+  }
+  .contacts-filters select {
+    max-width: 100%;
+  }
+  .contacts-table-scroll {
+    padding-inline: 16px;
+  }
+  .contact-overview {
+    padding: 0 16px 20px;
+    flex-wrap: wrap;
+  }
+  .contact-overview > .muted {
+    flex-basis: 100%;
+    margin: 0;
+  }
+  .contacts-pagination {
+    padding: 12px 16px;
+    flex-wrap: wrap;
+  }
+}

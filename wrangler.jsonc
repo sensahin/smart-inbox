@@ -1,0 +1,92 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "smart-inbox",
+  "main": "src/worker/entry.ts",
+  "compatibility_date": "2026-09-12",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "preview_urls": false,
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": true,
+  },
+  "ai": {
+    "binding": "AI",
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "SUPPORT_AGENT",
+        "class_name": "SupportDraftAgent",
+      },
+    ],
+  },
+  "migrations": [
+    {
+      "tag": "support-ai-v1",
+      "new_sqlite_classes": ["SupportDraftAgent"],
+    },
+  ],
+  "observability": {
+    "enabled": true,
+  },
+  "vars": {
+    "APP_ORIGIN": "",
+    "OWNER_EMAIL": "",
+    "ACCESS_TEAM_DOMAIN": "",
+    "ACCESS_AUD": "",
+    "WORKSPACE_DOMAIN": "",
+    "OPEN_TRACKING_ORIGIN": "",
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "smart-inbox",
+      "database_id": "",
+      "migrations_dir": "migrations",
+    },
+  ],
+  "r2_buckets": [
+    {
+      "binding": "FILES",
+      "bucket_name": "smart-inbox-files",
+    },
+    {
+      "binding": "BACKUPS",
+      "bucket_name": "smart-inbox-backups",
+    },
+  ],
+  "queues": {
+    "producers": [
+      {
+        "binding": "AI_JOBS",
+        "queue": "smart-inbox-ai-jobs",
+      },
+      {
+        "binding": "JOBS",
+        "queue": "smart-inbox-jobs",
+      },
+    ],
+    "consumers": [
+      {
+        "queue": "smart-inbox-ai-jobs",
+        "max_batch_size": 1,
+        "max_concurrency": 1,
+        "max_retries": 1,
+        "dead_letter_queue": "smart-inbox-ai-failed",
+      },
+      {
+        "queue": "smart-inbox-jobs",
+        "max_batch_size": 5,
+        "max_batch_timeout": 1,
+        "max_retries": 3,
+        "dead_letter_queue": "smart-inbox-failed",
+      },
+    ],
+  },
+  "triggers": {
+    "crons": ["* * * * *", "0 1 * * *"],
+  },
+}
