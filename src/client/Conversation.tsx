@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type Ref } from "react";
 import {
   ChevronDown,
   ChevronUp,
@@ -52,6 +52,8 @@ export function ConversationView({
   close: () => void;
 }) {
   const titleRef = useRef<HTMLHeadingElement>(null);
+  const latestMessageRef = useRef<HTMLElement>(null);
+  const readingColumnRef = useRef<HTMLDivElement>(null);
   const viewActive = useRef(true);
   const [readReady, setReadReady] = useState(false);
   const detail = useResource<Detail>(
@@ -76,8 +78,33 @@ export function ConversationView({
       viewActive.current = false;
     };
   }, [id, onRead]);
-  useEffect(() => {
-    titleRef.current?.focus({ preventScroll: true });
+  useLayoutEffect(() => {
+    const target = latestMessageRef.current || titleRef.current;
+    const column = readingColumnRef.current;
+    if (!target || !column) return;
+    const align = () =>
+      target.scrollIntoView({ block: "start", behavior: "instant" });
+    target.focus({ preventScroll: true });
+    align();
+    // Email frames resize after loading. Hold the opening position until the reader interacts.
+    let frame = 0;
+    const observer = new ResizeObserver(() => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(align);
+    });
+    const interactions = ["wheel", "touchstart", "pointerdown", "keydown"];
+    const stop = () => {
+      observer.disconnect();
+      cancelAnimationFrame(frame);
+      interactions.forEach((event) =>
+        document.removeEventListener(event, stop, true),
+      );
+    };
+    observer.observe(column);
+    interactions.forEach((event) =>
+      document.addEventListener(event, stop, { capture: true, passive: true }),
+    );
+    return stop;
   }, [detail.data?.conversation.id]);
   async function changeConversation(action: Status | "unread" | "trash") {
     if (actionInFlight.current || !detail.data) return;
@@ -175,7 +202,7 @@ export function ConversationView({
           </div>
         </header>
         <div className="detail-scroll">
-          <div className="reading-column">
+          <div className="reading-column" ref={readingColumnRef}>
             <div className="conversation-title">
               <div>
                 <h1 ref={titleRef} tabIndex={-1}>
@@ -229,6 +256,9 @@ export function ConversationView({
                 key={m.id}
                 message={m}
                 latest={i === messages.length - 1}
+                articleRef={
+                  i === messages.length - 1 ? latestMessageRef : undefined
+                }
               />
             ))}
             {!messages.length && (
@@ -332,13 +362,20 @@ export function ConversationView({
 function MessageCard({
   message: m,
   latest,
+  articleRef,
 }: {
   message: Message;
   latest: boolean;
+  articleRef?: Ref<HTMLElement>;
 }) {
   const [expanded, setExpanded] = useState(latest || m.direction === "inbound");
   return (
-    <article className={`message-card ${m.direction}`}>
+    <article
+      ref={articleRef}
+      className={`message-card ${m.direction}`}
+      tabIndex={-1}
+      aria-label={`Email from ${m.sender_name || m.sender}`}
+    >
       <header>
         <span
           className={`avatar small ${m.direction === "inbound" ? "hue-1" : "agent-avatar"}`}
