@@ -377,7 +377,7 @@ function MessageCard({
             >
               <MailOpen size={14} aria-hidden="true" />
               {m.first_opened_at
-                ? `Open detected on ${dateTime(m.first_opened_at)}`
+                ? `Customer viewed on ${dateTime(m.first_opened_at)}`
                 : "No open detected"}
             </div>
           )}
