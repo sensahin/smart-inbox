@@ -768,6 +768,9 @@ a svg {
   margin-top: 12px;
 }
 .message-card {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  column-gap: 12px;
   scroll-margin-top: 24px;
   border: 1px solid var(--border);
   border-radius: 9px;
@@ -778,12 +781,16 @@ a svg {
   background: #f8fbf9;
 }
 .message-card > header {
+  grid-column: 1 / -1;
   display: flex;
   align-items: center;
   gap: 12px;
   margin-bottom: 24px;
   padding-bottom: 20px;
   border-bottom: 1px solid var(--border);
+}
+.message-card > :not(header) {
+  grid-column: 2;
 }
 .message-identity {
   min-width: 0;
@@ -2756,6 +2763,10 @@ textarea {
   }
   .message-card {
     padding: 18px 14px;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .message-card > :not(header) {
+    grid-column: 1;
   }
   .message-card > header {
     gap: 8px;
