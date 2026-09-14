@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type Ref } from "react";
+import { useContext, useEffect, useRef, useState, type Ref } from "react";
 import {
   ChevronDown,
   ChevronUp,
@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import type { Message } from "../shared/types";
 import { dateTime, initials, relative } from "./api";
+import { AutoLoadImagesContext } from "./AutoLoadImagesContext";
 
 export function MessageCard({
   message: m,
@@ -19,6 +20,7 @@ export function MessageCard({
   latest: boolean;
   articleRef?: Ref<HTMLElement>;
 }) {
+  const autoLoadImages = useContext(AutoLoadImagesContext);
   const [expanded, setExpanded] = useState(latest || m.direction === "inbound");
   return (
     <article
@@ -57,7 +59,11 @@ export function MessageCard({
       </header>
       {expanded ? (
         <>
-          <EmailFrame message={m} />
+          <EmailFrame
+            key={autoLoadImages ? "automatic" : "manual"}
+            message={m}
+            autoLoadImages={autoLoadImages}
+          />
           {m.direction === "outbound" && !!m.open_tracked && (
             <div
               className="message-open-status"
@@ -94,7 +100,13 @@ export function MessageCard({
   );
 }
 
-function EmailFrame({ message: m }: { message: Message }) {
+function EmailFrame({
+  message: m,
+  autoLoadImages,
+}: {
+  message: Message;
+  autoLoadImages: boolean;
+}) {
   const ref = useRef<HTMLIFrameElement>(null),
     [height, setHeight] = useState(160),
     [hasRemoteImages, setHasRemoteImages] = useState(false),
@@ -125,7 +137,7 @@ function EmailFrame({ message: m }: { message: Message }) {
   }, [m.id]);
   return (
     <>
-      {hasRemoteImages && (
+      {hasRemoteImages && !autoLoadImages && (
         <div className="email-image-control">
           <span>
             {showImages
@@ -144,7 +156,7 @@ function EmailFrame({ message: m }: { message: Message }) {
       <iframe
         ref={ref}
         title={`Email from ${m.sender_name || m.sender}`}
-        src={`/api/messages/${m.id}/render${showImages ? "?images=show" : ""}`}
+        src={`/api/messages/${m.id}/render${autoLoadImages || showImages ? "?images=show" : ""}`}
         sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
         className="email-frame"
         style={{ height }}

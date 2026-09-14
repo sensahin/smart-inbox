@@ -9,6 +9,7 @@ import { parseJson, setting } from "./db";
 
 export const workspaceSchema = z
   .object({
+    load_external_images: z.boolean().default(false),
     name: z.string().trim().min(1).max(60),
     logo: z
       .string()

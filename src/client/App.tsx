@@ -43,6 +43,7 @@ import { Composer } from "./Composer";
 import { Toast, type Notice, type Notify } from "./Toast";
 import { useUnreadTitle } from "./useUnreadTitle";
 import { Contacts } from "./Contacts";
+import { AutoLoadImagesContext } from "./AutoLoadImagesContext";
 const Reports = lazy(() =>
   import("./Reports").then((module) => ({ default: module.Reports })),
 );
@@ -476,26 +477,28 @@ export function App() {
             notify={notify}
           />
         ) : selected ? (
-          <ConversationView
-            key={selected}
-            id={selected}
-            refresh={refresh}
-            inboxes={inboxes.data || []}
-            reload={reload}
-            onRead={refreshUnread}
-            notify={notify}
-            select={choose}
-            openContact={(id) => {
-              setView("contacts");
-              setInboxId("");
-              selectContact(id, "");
-            }}
-            close={() => {
-              returnToList.current = true;
-              choose("");
-              reload();
-            }}
-          />
+          <AutoLoadImagesContext value={workspace.load_external_images}>
+            <ConversationView
+              key={selected}
+              id={selected}
+              refresh={refresh}
+              inboxes={inboxes.data || []}
+              reload={reload}
+              onRead={refreshUnread}
+              notify={notify}
+              select={choose}
+              openContact={(id) => {
+                setView("contacts");
+                setInboxId("");
+                selectContact(id, "");
+              }}
+              close={() => {
+                returnToList.current = true;
+                choose("");
+                reload();
+              }}
+            />
+          </AutoLoadImagesContext>
         ) : (
           <section className="conversation-list" aria-labelledby="folder-title">
             <header className="list-toolbar">

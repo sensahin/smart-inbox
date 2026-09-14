@@ -123,6 +123,32 @@ export function GeneralSettings({
       </section>
       <section className="settings-card">
         <header>
+          <h2>Email display</h2>
+        </header>
+        <div className="card-body">
+          <label className="toggle-row">
+            <div>
+              <strong>Load external images automatically</strong>
+              <p id="external-images-help">
+                Display images without clicking Show images. Loading images
+                contacts the sender’s servers and may trigger open tracking.
+              </p>
+            </div>
+            <input
+              type="checkbox"
+              role="switch"
+              aria-label="Load external images automatically"
+              aria-describedby="external-images-help"
+              checked={form.load_external_images}
+              onChange={(e) =>
+                patch({ load_external_images: e.target.checked })
+              }
+            />
+          </label>
+        </div>
+      </section>
+      <section className="settings-card">
+        <header>
           <h2>Contact form subjects</h2>
         </header>
         <div className="card-body">

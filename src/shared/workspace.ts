@@ -5,6 +5,7 @@ export type WorkspaceSettings = {
   product_name: string;
   subject_identifiers: string[];
   timezone: string;
+  load_external_images: boolean;
 };
 
 export const DEFAULT_WORKSPACE: WorkspaceSettings = {
@@ -14,6 +15,7 @@ export const DEFAULT_WORKSPACE: WorkspaceSettings = {
   product_name: "",
   subject_identifiers: [],
   timezone: "UTC",
+  load_external_images: false,
 };
 
 /** Only public HTTPS hostnames; credentials, IPs and local service names are refused. */
